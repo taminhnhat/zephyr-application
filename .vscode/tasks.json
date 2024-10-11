@@ -1,0 +1,177 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "west build app",
+            "type": "shell",
+            "command": "west",
+            "args": [
+                "build",
+                "-p",
+                "auto",
+                "-b",
+                "stm32f4_disco",
+                "app"
+            ],
+            "runOptions": {},
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "west flash remote",
+            "type": "shell",
+            "command": "west",
+            "args": [
+                "flash",
+                "-t",
+                "jlink",
+                "--tool-opt=\"ip tunnel: 69730335: 12345:jlink-asia.segger.com\""
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "west flash jlink",
+            "type": "shell",
+            "command": "west",
+            "args": [
+                "flash",
+                "--runner",
+                "jlink",
+                "--file",
+                "${workspaceFolder}/build/zephyr/zephyr.bin"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "west flash stlink",
+            "type": "shell",
+            "command": "west",
+            "args": [
+                "flash",
+                "--runner",
+                "openocd",
+                "--elf-file",
+                "${workspaceFolder}/build/zephyr/zephyr.elf"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "west clean build",
+            "type": "shell",
+            "command": "west",
+            "args": [
+                "build",
+                "-t",
+                "clean"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "virtual env test",
+            "type": "shell",
+            "command": "where.exe",
+            "args": [
+                "west",
+            ],
+            "runOptions": {},
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "CMake clean catch",
+            "command": "rm",
+            "type": "shell",
+            "args": [
+                "./build/CMakeCache.txt"
+            ],
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}",
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "customText",
+            "type": "promptString",
+            "description": "Enter the text to append to the command",
+            "default": ""
+        }
+    ]
+}

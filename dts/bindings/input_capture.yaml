@@ -1,0 +1,10 @@
+description: GPIO pin to read external interrupt on both edge
+
+compatible: "input-capture"
+
+properties:
+  gpios:
+    type: phandle-array
+    required: true
+    description: |
+      The GPIO as digital input.

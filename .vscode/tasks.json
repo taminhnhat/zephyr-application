@@ -24,7 +24,7 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                    "PATH": "C:/Users/${USERNAME}/zephyrproject/.venv/Scripts;${env:PATH}"
                 }
             }
         },
@@ -48,7 +48,7 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                    "PATH": "C:/Users/${USERNAME}/zephyrproject/.venv/Scripts;${env:PATH}"
                 }
             }
         },
@@ -73,7 +73,7 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                    "PATH": "C:/Users/${USERNAME}/zephyrproject/.venv/Scripts;${env:PATH}"
                 }
             }
         },
@@ -98,7 +98,7 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                    "PATH": "C:/Users/${USERNAME}/zephyrproject/.venv/Scripts;${env:PATH}"
                 }
             }
         },
@@ -121,7 +121,7 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                    "PATH": "C:/Users/${USERNAME}/zephyrproject/.venv/Scripts;${env:PATH}"
                 }
             }
         },
@@ -143,7 +143,7 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "PATH": "${workspaceFolder}/.venv/Scripts;${env:PATH}"
+                    "PATH": "C:/Users/${USERNAME}/zephyrproject/.venv/Scripts;${env:PATH}"
                 }
             }
         },

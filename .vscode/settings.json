@@ -4,10 +4,15 @@
     "cortex-debug.gdbPath": "C:/Program Files (x86)/Arm GNU Toolchain arm-none-eabi/13.2 Rel1/bin/arm-none-eabi-gdb",
     "cortex-debug.JLinkGDBServerPath": "C:/Program Files/SEGGER/JLink_V798g/JLinkGDBServerCL",
     "files.associations": {
-        "regex": "c"
+        "regex": "c",
+        "kernel.h": "c",
+        "device.h": "c",
+        "kernel_includes.h": "c",
+        "syscall.h": "c",
+        "string.h": "c"
     },
     "C_Cpp.files.exclude": {},
     "C_Cpp.default.compilerPath": "C:/Users/${USERNAME}/zephyr-sdk-0.16.8/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe",
-    "C_Cpp.default.compileCommands": "C:/Users/${USERNAME}/zephyrproject/applications/build/compile_commands.json",
+    "C_Cpp.default.compileCommands": "C:/Users/${USERNAME}/zephyrproject/zephyr/build/compile_commands.json",
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
 }

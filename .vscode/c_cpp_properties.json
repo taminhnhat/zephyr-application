@@ -15,8 +15,8 @@
                 "C:/Users/${USERNAME}/zephyrproject/zephyr/drivers",
                 "C:/Users/${USERNAME}/zephyrproject/modules/hal/stm32",
                 "C:/Users/${USERNAME}/zephyrproject/zephyr/subsys/testsuite/ztest/include",
-                "C:/Users/${USERNAME}/zephyrproject/applications/build/zephyr/include/generated/**",
-                "C:/Users/${USERNAME}/zephyr-sdk-0.16.8/arm-zephyr-eabi/arm-zephyr-eabi/include"
+                "C:/Users/${USERNAME}/zephyr-sdk-0.16.8/arm-zephyr-eabi/arm-zephyr-eabi/include",
+                "${workspaceFolder}/build/zephyr/include/generated/**"
             ],
             "defines": [
                 "_DEBUG",
@@ -28,7 +28,7 @@
                 "path": [
                     "C:/Users/${USERNAME}/zephyrproject/zephyr/include",
                     "C:/Users/${USERNAME}/zephyrproject/zephyr/subsys/testsuite/ztest/include",
-                    "C:/Users/${USERNAME}/zephyrproject/applications/app/inc"
+                    "${workspaceFolder}/app/inc"
                 ]
             }
         }

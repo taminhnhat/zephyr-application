@@ -15,4 +15,7 @@
     "C_Cpp.default.compilerPath": "C:/Users/${USERNAME}/zephyr-sdk-0.16.8/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe",
     "C_Cpp.default.compileCommands": "C:/Users/${USERNAME}/zephyrproject/zephyr/build/compile_commands.json",
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "terminal.integrated.env.windows": {
+        "ZEPHYR_BASE": "C:/Users/nhat.ta-minh/zephyrproject/zephyr/"
+    },
 }

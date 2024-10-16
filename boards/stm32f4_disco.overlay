@@ -18,4 +18,36 @@
 		compatible = "input-capture";
 		gpios = <&gpiod 3 GPIO_ACTIVE_HIGH>;
 	};
+
+	soc{
+		pinctrl: pin-controller@40020000{
+			gpioa: gpio@40020000 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+			gpiob: gpio@40020400 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+			gpioc: gpio@40020800 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+			gpiod: gpio@40020c00 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+			gpioe: gpio@40021000 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+			gpiof: gpio@40021400 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+			gpiog: gpio@40021800 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+			gpioh: gpio@40021c00 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+			gpioi: gpio@40022000 {
+				compatible = "st,stm32-gpio-mydisco";
+			};
+		};
+	};
 };

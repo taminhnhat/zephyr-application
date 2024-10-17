@@ -21,6 +21,7 @@
 
 	soc{
 		pinctrl: pin-controller@40020000{
+			compatible = "st,stm32-pinctrl-mydisco";
 			gpioa: gpio@40020000 {
 				compatible = "st,stm32-gpio-mydisco";
 			};

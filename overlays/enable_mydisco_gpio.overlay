@@ -1,32 +1,7 @@
-/*
- * Copyright (c) 2023 Martin Jäger / Libre Solar
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 / {
-	// chosen {
-	// 	zephyr,shell-uart = &usart1;
-	// };
-
-	load_switch: load_switch {                                // <node label>:<node name> - create new node
-		compatible = "power-switch";
-		gpios = <&gpiod 2 GPIO_ACTIVE_HIGH>;                // define new pin PD2
-	};
-
-	input_capture: input_capture{
-		compatible = "input-capture";
-		gpios = <&gpiod 3 GPIO_ACTIVE_HIGH>;
-	};
-
-	accelerometer: accelerometer{
-		compatible = "st,stm32-accel";
-		status = "okay";
-	};
 
 	soc{
 		pinctrl: pin-controller@40020000{
-			compatible = "st,stm32-pinctrl-mydisco";
 			gpioa: gpio@40020000 {
 				compatible = "st,stm32-gpio-mydisco";
 			};

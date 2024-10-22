@@ -1,0 +1,6 @@
+source "Kconfig.zephyr"
+
+config STM32F4_DISCO_ACCELEROMETER
+	bool "Accelerometer Driver for STM32 family of MCUs"
+	default y
+	depends on DT_HAS_ST_STM32_ACCEL_ENABLED

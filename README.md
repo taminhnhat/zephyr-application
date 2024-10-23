@@ -25,10 +25,16 @@
 [pinctrl_stm32_mydisco.c](../zephyr/drivers/pinctrl/pinctrl_stm32_mydisco.c)  
 [pinctrl Kconfig](../zephyr/drivers/pinctrl/Kconfig)  |  [pinctrl Kconfig.stm32](../zephyr/drivers/pinctrl/Kconfig.stm32)  |  [pinctrl Kconfig.stm32_mydisco](../zephyr/drivers/pinctrl/Kconfig.stm32_mydisco)  
 [st,stm32-pinctrl.yaml](../zephyr/dts/bindings/pinctrl/st,stm32-pinctrl.yaml)  |  [st,stm32-pinctrl-mydisco.yaml](../zephyr/dts/bindings/pinctrl/st,stm32-pinctrl-mydisco.yaml)  
+### accelerometer driver
+[accel CMakeLists.txt](../zephyr/drivers/accel/CMakeLists.txt)  
+[accel_stm32.c](../zephyr/drivers/accel/accel_stm32.c)  
+[accel Kconfig](../zephyr/drivers/accel/Kconfig)  
+[accel Kconfig.stm32](../zephyr/drivers/accel/Kconfig.stm32)  
+[st,stm32-accel.yaml](../zephyr/dts/bindings/accelerometer/st,stm32-accel.yaml)  
 
-## Patchs
-[patch dir](./patchs) stores patch file ò zephyr source code.  
-### add_gpio_driver.patch - adding gpio driver for stm32f4_disco  
+# Patchs
+[patch dir](./patchs) stores patch file of zephyr source code.  
+## add_gpio_driver.patch - adding gpio driver for stm32f4_disco  
 - New compatible is "st,stm32-gpio-mydisco" 
 - Create zephyr/dts/bindings/gpio/st,stm32-gpio-mydisco.yaml  
 - Create zephyr/drivers/gpio/Kconfig.stm32_mydisco  
@@ -59,7 +65,7 @@ zephyr
 │           └── st,stm32-gpio-mydisco.yaml          Created
 ├── include
 ```
-### add_pinctrl_driver.patch - adding pin control driver for stm32f4_disco, new compatible is "st.stm32-pinctrl-mydisco"  
+## add_pinctrl_driver.patch - adding pin control driver for stm32f4_disco 
 - New compatible is "st,stm32-pinctrl-mydisco" 
 - Create zephyr/dts/bindings/pinctrl/st,stm32-pinctrl-mydisco.yaml  
 - Create zephyr/drivers/pinctrl/Kconfig.stm32_mydisco  
@@ -85,6 +91,14 @@ zephyr
 │           └── st,stm32-gpio-mydisco.yaml
 ├── include
 ```
+## adding accelerometer driver for stm32f4_disco  
+- Compatible is "st,stm32-accel" 
+- Create zephyr/dts/bindings/accel/st,stm32-accel.yaml  
+- Create zephyr/drivers/accel/Kconfig.stm32_mydisco  
+- Create zephyr/drivers/accel/gpio_stm32_mydisco.c
+- Create zephyr/drivers/accel/gpio_stm32_mydisco.h  
+- Modify zephyr/drivers/accel/CMakeLists.txt to source gpio_stm32_mydisco.c  
+- Modify zephyr/drivers/accel/Kconfig to source new Kconfig.stm32_mydisco  
 # REFERENCE
 [zephyr device driver model](https://docs.zephyrproject.org/latest/kernel/drivers/index.html)  
 [zephyr build system (CMake)](https://docs.zephyrproject.org/latest/build/cmake/index.html)  

@@ -1,0 +1,602 @@
+From b2e81be13e4d274d8b90c31993403a339f279021 Mon Sep 17 00:00:00 2001
+From: Ta Minh Nhat <nhat.ta-minh@banvien.com.vn>
+Date: Wed, 23 Oct 2024 17:29:37 +0700
+Subject: [PATCH] Add accelerometer driver
+
+---
+ boards/st/stm32f4_disco/stm32f4_disco.dts     |   5 +
+ boards/st/stm32f4_disco/stm32f4_disco.overlay |  26 ++
+ drivers/CMakeLists.txt                        |   1 +
+ drivers/accel/CMakeLists.txt                  |   8 +
+ drivers/accel/Kconfig                         |  14 +
+ drivers/accel/Kconfig.stm32                   |   6 +
+ drivers/accel/accel_stm32.c                   | 101 +++++++
+ drivers/accel/accel_stm32.h                   | 278 ++++++++++++++++++
+ .../accelerometer/st,stm32-accel.yaml         |   9 +
+ include/zephyr/drivers/accel.h                |  50 ++++
+ 10 files changed, 498 insertions(+)
+ create mode 100644 boards/st/stm32f4_disco/stm32f4_disco.overlay
+ create mode 100644 drivers/accel/CMakeLists.txt
+ create mode 100644 drivers/accel/Kconfig
+ create mode 100644 drivers/accel/Kconfig.stm32
+ create mode 100644 drivers/accel/accel_stm32.c
+ create mode 100644 drivers/accel/accel_stm32.h
+ create mode 100644 dts/bindings/accelerometer/st,stm32-accel.yaml
+ create mode 100644 include/zephyr/drivers/accel.h
+
+diff --git a/boards/st/stm32f4_disco/stm32f4_disco.dts b/boards/st/stm32f4_disco/stm32f4_disco.dts
+index 163612aaf07..6f2eb84201b 100644
+--- a/boards/st/stm32f4_disco/stm32f4_disco.dts
++++ b/boards/st/stm32f4_disco/stm32f4_disco.dts
+@@ -51,6 +51,11 @@
+ 		};
+ 	};
+ 
++	accelerometer: accelerometer{
++		compatible = "st,stm32-accel";
++		status = "okay";
++	};
++
+ 	aliases {
+ 		led0 = &green_led_4;
+ 		led1 = &orange_led_3;
+diff --git a/boards/st/stm32f4_disco/stm32f4_disco.overlay b/boards/st/stm32f4_disco/stm32f4_disco.overlay
+new file mode 100644
+index 00000000000..c4ff9bc9bb6
+--- /dev/null
++++ b/boards/st/stm32f4_disco/stm32f4_disco.overlay
+@@ -0,0 +1,26 @@
++/*
++ * Copyright (c) 2023 Martin Jäger / Libre Solar
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++/ {
++	// chosen {
++	// 	zephyr,shell-uart = &usart1;
++	// };
++
++	load_switch: load_switch {                                // <node label>:<node name> - create new node
++		compatible = "power-switch";
++		gpios = <&gpiod 2 GPIO_ACTIVE_HIGH>;                // define new pin PD2
++	};
++
++	input_capture: input_capture{
++		compatible = "input-capture";
++		gpios = <&gpiod 3 GPIO_ACTIVE_HIGH>;
++	};
++
++	accelerometer: accelerometer{
++		compatible = "st,stm32-accel";
++		status = "okay";
++	};
++};
+\ No newline at end of file
+diff --git a/drivers/CMakeLists.txt b/drivers/CMakeLists.txt
+index acf20d2867c..cc693d67ade 100644
+--- a/drivers/CMakeLists.txt
++++ b/drivers/CMakeLists.txt
+@@ -14,6 +14,7 @@ add_subdirectory(pcie)
+ add_subdirectory(usb)
+ add_subdirectory(usb_c)
+ 
++add_subdirectory_ifdef(CONFIG_ACCEL accel)
+ add_subdirectory_ifdef(CONFIG_ADC adc)
+ add_subdirectory_ifdef(CONFIG_ARM_SIP_SVC_DRIVER sip_svc)
+ add_subdirectory_ifdef(CONFIG_AUDIO audio)
+diff --git a/drivers/accel/CMakeLists.txt b/drivers/accel/CMakeLists.txt
+new file mode 100644
+index 00000000000..4d5960d93aa
+--- /dev/null
++++ b/drivers/accel/CMakeLists.txt
+@@ -0,0 +1,8 @@
++# SPDX-License-Identifier: Apache-2.0
++
++zephyr_syscall_header(${ZEPHYR_BASE}/include/zephyr/drivers/accel.h)
++
++zephyr_library()
++
++# zephyr-keep-sorted-start
++zephyr_library_sources_ifdef(CONFIG_ACCEL_STM32     accel_stm32.c)
+\ No newline at end of file
+diff --git a/drivers/accel/Kconfig b/drivers/accel/Kconfig
+new file mode 100644
+index 00000000000..7a1a378df22
+--- /dev/null
++++ b/drivers/accel/Kconfig
+@@ -0,0 +1,14 @@
++# Accelerometer configuration options
++
++menuconfig ACCEL
++	bool "Accelerometer drivers"
++
++if ACCEL
++
++module = ACCEL
++module-str = accel
++source "subsys/logging/Kconfig.template.log_config"
++
++source "drivers/accel/Kconfig.stm32"
++
++endif # GPIO
+diff --git a/drivers/accel/Kconfig.stm32 b/drivers/accel/Kconfig.stm32
+new file mode 100644
+index 00000000000..17e2c294bd8
+--- /dev/null
++++ b/drivers/accel/Kconfig.stm32
+@@ -0,0 +1,6 @@
++# STM32 Accelerometer configuration
++
++config ACCEL_STM32
++	bool "Accelerometer Driver for STM32f4 discovery"
++	default y
++	depends on DT_HAS_ST_STM32_ACCEL_ENABLED
+\ No newline at end of file
+diff --git a/drivers/accel/accel_stm32.c b/drivers/accel/accel_stm32.c
+new file mode 100644
+index 00000000000..cbcef75e8fa
+--- /dev/null
++++ b/drivers/accel/accel_stm32.c
+@@ -0,0 +1,101 @@
++/*
++ * Copyright (c) 2021 Nordic Semiconductor ASA
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#define DT_DRV_COMPAT stm32_accel   // is this a compatible name?
++
++#include <zephyr/drivers/accel.h>
++#include <zephyr/drivers/gpio.h>
++#include <zephyr/device.h>
++#include <zephyr/kernel.h>
++
++#include <zephyr/logging/log.h>
++LOG_MODULE_REGISTER(led_gpio, CONFIG_LED_LOG_LEVEL);
++
++struct led_gpio_config {
++	size_t num_leds;
++	const struct gpio_dt_spec *led;
++};
++
++static int led_gpio_set_brightness(const struct device *dev, uint32_t led, uint8_t value)
++{
++
++	const struct led_gpio_config *config = dev->config;
++	const struct gpio_dt_spec *led_gpio;
++
++	if ((led >= config->num_leds) || (value > 100)) {
++		return -EINVAL;
++	}
++
++	led_gpio = &config->led[led];
++
++	return gpio_pin_set_dt(led_gpio, value > 0);
++}
++
++static int led_gpio_on(const struct device *dev, uint32_t led)
++{
++    const struct led_gpio_config *config = dev->config;
++	const struct gpio_dt_spec *led_gpio;
++
++	led_gpio = &config->led[led];
++
++	return gpio_pin_set_dt(led_gpio, 1);
++}
++
++static int led_gpio_off(const struct device *dev, uint32_t led)
++{
++	return led_gpio_set_brightness(dev, led, 0);
++}
++
++static int led_gpio_init(const struct device *dev)
++{
++	const struct led_gpio_config *config = dev->config;
++	int err = 0;
++
++	if (!config->num_leds) {
++		LOG_ERR("%s: no LEDs found (DT child nodes missing)", dev->name);
++		err = -ENODEV;
++	}
++
++	for (size_t i = 0; (i < config->num_leds) && !err; i++) {
++		const struct gpio_dt_spec *led = &config->led[i];
++
++		if (device_is_ready(led->port)) {
++			err = gpio_pin_configure_dt(led, GPIO_OUTPUT_INACTIVE);
++
++			if (err) {
++				LOG_ERR("Cannot configure GPIO (err %d)", err);
++			}
++		} else {
++			LOG_ERR("%s: GPIO device not ready", dev->name);
++			err = -ENODEV;
++		}
++	}
++
++	return err;
++}
++
++static const struct accel_driver_api accel_stm32_driver = {
++	.on		= led_gpio_on,
++	.off		= led_gpio_off,
++};
++
++#define ACCEL_DEVICE(i)					\
++								\
++static const struct gpio_dt_spec gpio_dt_spec_##i[] = {		\
++	DT_INST_FOREACH_CHILD_SEP_VARGS(i, GPIO_DT_SPEC_GET, (,), gpios) \
++};								\
++								\
++static const struct led_gpio_config led_gpio_config_##i = {	\
++	.num_leds	= ARRAY_SIZE(gpio_dt_spec_##i),	\
++	.led		= gpio_dt_spec_##i,			\
++};								\
++								\
++DEVICE_DT_INST_DEFINE(i, &led_gpio_init, NULL,			\
++		      NULL, &led_gpio_config_##i,		\
++		      POST_KERNEL, CONFIG_LED_INIT_PRIORITY,	\
++		      &accel_stm32_driver);
++
++DT_INST_FOREACH_STATUS_OKAY(ACCEL_DEVICE)
+diff --git a/drivers/accel/accel_stm32.h b/drivers/accel/accel_stm32.h
+new file mode 100644
+index 00000000000..1e97fe771c8
+--- /dev/null
++++ b/drivers/accel/accel_stm32.h
+@@ -0,0 +1,278 @@
++/*
++ * Copyright (c) 2016 Open-RnD Sp. z o.o.
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#ifndef ZEPHYR_DRIVERS_ACCEL_ACCEL_STM32_H_
++#define ZEPHYR_DRIVERS_ACCEL_ACCEL_STM32_H_
++
++/**
++ * @file header for STM32 GPIO
++ */
++
++#include <zephyr/drivers/clock_control/stm32_clock_control.h>
++#include <zephyr/drivers/gpio.h>
++#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32f1_pinctrl)
++#include <zephyr/dt-bindings/pinctrl/stm32f1-pinctrl.h>
++#else
++#include <zephyr/dt-bindings/pinctrl/stm32-pinctrl.h>
++#endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32f1_pinctrl) */
++
++/* GPIO buses definitions */
++
++#define STM32_PORT_NOT_AVAILABLE 0xFFFFFFFF
++
++#ifdef CONFIG_SOC_SERIES_STM32F0X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB1
++#define STM32_PERIPH_GPIOA LL_AHB1_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB1_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB1_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB1_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB1_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB1_GRP1_PERIPH_GPIOF
++#elif CONFIG_SOC_SERIES_STM32F1X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_APB2
++#define STM32_PERIPH_GPIOA LL_APB2_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_APB2_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_APB2_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_APB2_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_APB2_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_APB2_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_APB2_GRP1_PERIPH_GPIOG
++#elif CONFIG_SOC_SERIES_STM32F2X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB1
++#define STM32_PERIPH_GPIOA LL_AHB1_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB1_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB1_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB1_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB1_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB1_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB1_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB1_GRP1_PERIPH_GPIOH
++#define STM32_PERIPH_GPIOI LL_AHB1_GRP1_PERIPH_GPIOI
++#elif CONFIG_SOC_SERIES_STM32F3X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB1
++#define STM32_PERIPH_GPIOA LL_AHB1_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB1_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB1_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB1_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB1_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB1_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB1_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB1_GRP1_PERIPH_GPIOH
++#elif CONFIG_SOC_SERIES_STM32F4X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB1
++#define STM32_PERIPH_GPIOA LL_AHB1_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB1_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB1_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB1_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB1_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB1_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB1_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB1_GRP1_PERIPH_GPIOH
++#define STM32_PERIPH_GPIOI LL_AHB1_GRP1_PERIPH_GPIOI
++#define STM32_PERIPH_GPIOJ LL_AHB1_GRP1_PERIPH_GPIOJ
++#define STM32_PERIPH_GPIOK LL_AHB1_GRP1_PERIPH_GPIOK
++#elif CONFIG_SOC_SERIES_STM32F7X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB1
++#define STM32_PERIPH_GPIOA LL_AHB1_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB1_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB1_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB1_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB1_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB1_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB1_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB1_GRP1_PERIPH_GPIOH
++#define STM32_PERIPH_GPIOI LL_AHB1_GRP1_PERIPH_GPIOI
++#define STM32_PERIPH_GPIOJ LL_AHB1_GRP1_PERIPH_GPIOJ
++#define STM32_PERIPH_GPIOK LL_AHB1_GRP1_PERIPH_GPIOK
++#elif CONFIG_SOC_SERIES_STM32H7X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB4
++#define STM32_PERIPH_GPIOA LL_AHB4_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB4_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB4_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB4_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB4_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB4_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB4_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB4_GRP1_PERIPH_GPIOH
++#define STM32_PERIPH_GPIOI LL_AHB4_GRP1_PERIPH_GPIOI
++#define STM32_PERIPH_GPIOJ LL_AHB4_GRP1_PERIPH_GPIOJ
++#define STM32_PERIPH_GPIOK LL_AHB4_GRP1_PERIPH_GPIOK
++#elif CONFIG_SOC_SERIES_STM32H7RSX
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB4
++#define STM32_PERIPH_GPIOA LL_AHB4_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB4_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB4_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB4_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB4_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB4_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB4_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB4_GRP1_PERIPH_GPIOH
++#define STM32_PERIPH_GPIOM LL_AHB4_GRP1_PERIPH_GPIOM
++#define STM32_PERIPH_GPION LL_AHB4_GRP1_PERIPH_GPION
++#define STM32_PERIPH_GPIOO LL_AHB4_GRP1_PERIPH_GPIOO
++#define STM32_PERIPH_GPIOP LL_AHB4_GRP1_PERIPH_GPIOP
++#elif CONFIG_SOC_SERIES_STM32G0X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_IOP
++#define STM32_PERIPH_GPIOA LL_IOP_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_IOP_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_IOP_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_IOP_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_IOP_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_IOP_GRP1_PERIPH_GPIOF
++#elif CONFIG_SOC_SERIES_STM32L0X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_IOP
++#define STM32_PERIPH_GPIOA LL_IOP_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_IOP_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_IOP_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_IOP_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_IOP_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOH LL_IOP_GRP1_PERIPH_GPIOH
++#elif CONFIG_SOC_SERIES_STM32L1X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB1
++#define STM32_PERIPH_GPIOA LL_AHB1_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB1_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB1_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB1_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB1_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB1_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB1_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB1_GRP1_PERIPH_GPIOH
++#elif CONFIG_SOC_SERIES_STM32L4X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB2
++#define STM32_PERIPH_GPIOA LL_AHB2_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB2_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB2_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB2_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB2_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB2_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB2_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB2_GRP1_PERIPH_GPIOH
++#define STM32_PERIPH_GPIOI LL_AHB2_GRP1_PERIPH_GPIOI
++#elif CONFIG_SOC_SERIES_STM32L5X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB2
++#define STM32_PERIPH_GPIOA LL_AHB2_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB2_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB2_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB2_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB2_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB2_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB2_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB2_GRP1_PERIPH_GPIOH
++#elif CONFIG_SOC_SERIES_STM32MP1X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB4
++#define STM32_PERIPH_GPIOA LL_AHB4_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB4_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB4_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB4_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB4_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB4_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB4_GRP1_PERIPH_GPIOG
++#define STM32_PERIPH_GPIOH LL_AHB4_GRP1_PERIPH_GPIOH
++#define STM32_PERIPH_GPIOI LL_AHB4_GRP1_PERIPH_GPIOI
++#define STM32_PERIPH_GPIOJ LL_AHB4_GRP1_PERIPH_GPIOJ
++#define STM32_PERIPH_GPIOK LL_AHB4_GRP1_PERIPH_GPIOK
++#elif CONFIG_SOC_SERIES_STM32WBX
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB2
++#define STM32_PERIPH_GPIOA LL_AHB2_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB2_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB2_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB2_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB2_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOH LL_AHB2_GRP1_PERIPH_GPIOH
++#elif CONFIG_SOC_SERIES_STM32G4X
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB2
++#define STM32_PERIPH_GPIOA LL_AHB2_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB2_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB2_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOD LL_AHB2_GRP1_PERIPH_GPIOD
++#define STM32_PERIPH_GPIOE LL_AHB2_GRP1_PERIPH_GPIOE
++#define STM32_PERIPH_GPIOF LL_AHB2_GRP1_PERIPH_GPIOF
++#define STM32_PERIPH_GPIOG LL_AHB2_GRP1_PERIPH_GPIOG
++#elif CONFIG_SOC_SERIES_STM32WLX
++#define STM32_CLOCK_BUS_GPIO STM32_CLOCK_BUS_AHB2
++#define STM32_PERIPH_GPIOA LL_AHB2_GRP1_PERIPH_GPIOA
++#define STM32_PERIPH_GPIOB LL_AHB2_GRP1_PERIPH_GPIOB
++#define STM32_PERIPH_GPIOC LL_AHB2_GRP1_PERIPH_GPIOC
++#define STM32_PERIPH_GPIOH LL_AHB2_GRP1_PERIPH_GPIOH
++#endif /* CONFIG_SOC_SERIES_* */
++
++#ifdef CONFIG_SOC_SERIES_STM32F1X
++#define STM32_PINCFG_MODE_OUTPUT        (STM32_MODE_OUTPUT     \
++					 | STM32_CNF_GP_OUTPUT \
++					 | STM32_CNF_PUSH_PULL)
++#define STM32_PINCFG_MODE_INPUT         STM32_MODE_INPUT
++#define STM32_PINCFG_MODE_ANALOG        (STM32_MODE_INPUT	\
++					 | STM32_CNF_IN_ANALOG)
++#define STM32_PINCFG_PUSH_PULL          STM32_CNF_PUSH_PULL
++#define STM32_PINCFG_OPEN_DRAIN         STM32_CNF_OPEN_DRAIN
++#define STM32_PINCFG_PULL_UP            (STM32_CNF_IN_PUPD | STM32_PUPD_PULL_UP)
++#define STM32_PINCFG_PULL_DOWN          (STM32_CNF_IN_PUPD | \
++					STM32_PUPD_PULL_DOWN)
++#define STM32_PINCFG_FLOATING           (STM32_CNF_IN_FLOAT | \
++					STM32_PUPD_NO_PULL)
++#else
++#define STM32_PINCFG_MODE_OUTPUT        STM32_MODER_OUTPUT_MODE
++#define STM32_PINCFG_MODE_INPUT         STM32_MODER_INPUT_MODE
++#define STM32_PINCFG_MODE_ANALOG        STM32_MODER_ANALOG_MODE
++#define STM32_PINCFG_PUSH_PULL          STM32_OTYPER_PUSH_PULL
++#define STM32_PINCFG_OPEN_DRAIN         STM32_OTYPER_OPEN_DRAIN
++#define STM32_PINCFG_PULL_UP            STM32_PUPDR_PULL_UP
++#define STM32_PINCFG_PULL_DOWN          STM32_PUPDR_PULL_DOWN
++#define STM32_PINCFG_FLOATING           STM32_PUPDR_NO_PULL
++#endif /* CONFIG_SOC_SERIES_STM32F1X */
++
++#if defined(CONFIG_GPIO_GET_CONFIG) && !defined(CONFIG_SOC_SERIES_STM32F1X)
++/**
++ * @brief structure of a GPIO pin (stm32 LL values) use to get the configuration
++ */
++struct gpio_stm32_pin {
++	unsigned int type; /* LL_GPIO_OUTPUT_PUSHPULL or LL_GPIO_OUTPUT_OPENDRAIN */
++	unsigned int pupd; /* LL_GPIO_PULL_NO or LL_GPIO_PULL_UP or LL_GPIO_PULL_DOWN */
++	unsigned int mode; /* LL_GPIO_MODE_INPUT or LL_GPIO_MODE_OUTPUT or other */
++	unsigned int out_state; /* 1 (high level) or 0 (low level) */
++};
++#endif /* CONFIG_GPIO_GET_CONFIG */
++
++/**
++ * @brief configuration of GPIO device
++ */
++struct gpio_stm32_config {
++	/* gpio_driver_config needs to be first */
++	struct gpio_driver_config common;
++	/* port base address */
++	uint32_t *base;
++	/* IO port */
++	int port;
++	struct stm32_pclken pclken;
++};
++
++/**
++ * @brief driver data
++ */
++struct gpio_stm32_data {
++	/* gpio_driver_data needs to be first */
++	struct gpio_driver_data common;
++	/* device's owner of this data */
++	const struct device *dev;
++	/* user ISR cb */
++	sys_slist_t cb;
++	/* keep track of pins that  are connected and need GPIO clock to be enabled */
++	uint32_t pin_has_clock_enabled;
++};
++
++/**
++ * @brief helper for configuration of GPIO pin
++ *
++ * @param dev GPIO port device pointer
++ * @param pin IO pin
++ * @param conf GPIO mode
++ * @param func Pin function
++ *
++ * @return 0 on success, negative errno code on failure
++ */
++int gpio_stm32_configure(const struct device *dev, gpio_pin_t pin, uint32_t conf, uint32_t func);
++
++#endif /* ZEPHYR_DRIVERS_GPIO_GPIO_STM32_H_ */
+diff --git a/dts/bindings/accelerometer/st,stm32-accel.yaml b/dts/bindings/accelerometer/st,stm32-accel.yaml
+new file mode 100644
+index 00000000000..14fc39de714
+--- /dev/null
++++ b/dts/bindings/accelerometer/st,stm32-accel.yaml
+@@ -0,0 +1,9 @@
++# A YAML binding matching the node
++description: STM32 accelerometer node
++
++compatible: "st,stm32-accel"
++
++# properties:
++#   status:
++#     type: int
++#     required: true
+\ No newline at end of file
+diff --git a/include/zephyr/drivers/accel.h b/include/zephyr/drivers/accel.h
+new file mode 100644
+index 00000000000..27c873c33d1
+--- /dev/null
++++ b/include/zephyr/drivers/accel.h
+@@ -0,0 +1,50 @@
++/**
++ * @file
++ * @brief Accelerometer public API header file.
++ */
++
++#ifndef ZEPHYR_INCLUDE_DRIVERS_ACCEL_H_
++#define ZEPHYR_INCLUDE_DRIVERS_ACCEL_H_
++
++#include <zephyr/device.h>
++// #include <zephyr/dt-bindings/adc/adc.h>
++#include <zephyr/kernel.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++typedef int (*led_api_on)(const struct device *dev, uint32_t led);
++typedef int (*led_api_off)(const struct device *dev, uint32_t led);
++
++__subsystem struct accel_driver_api {
++	/* Mandatory callbacks. */
++	led_api_on on;
++	led_api_off off;
++};
++
++__syscall int led_on(const struct device *dev, uint32_t led);
++
++static inline int z_impl_led_on(const struct device *dev, uint32_t led)
++{
++	const struct accel_driver_api *api =
++		(const struct accel_driver_api *)dev->api;
++
++	return api->on(dev, led);
++}
++
++__syscall int led_off(const struct device *dev, uint32_t led);
++
++static inline int z_impl_led_off(const struct device *dev, uint32_t led)
++{
++	const struct accel_driver_api *api =
++		(const struct accel_driver_api *)dev->api;
++
++	return api->off(dev, led);
++}
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+\ No newline at end of file
+-- 
+2.46.0.windows.1
+
